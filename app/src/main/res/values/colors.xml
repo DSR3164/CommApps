@@ -7,4 +7,11 @@
     <color name="teal_700">#FF018786</color>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
+    <color name="monokaiBackground">#FF272822</color>
+    <color name="monokaiForeground">#FFF8F8F2</color>
+    <color name="monokaiBlue">#FF66D9EF</color>      
+    <color name="monokaiGreen">#FFA6E22E</color>     
+    <color name="monokaiRed">#FFF92672</color>       
+    <color name="monokaiOrange">#FFFD971F</color>    
+    <color name="monokaiPurple">#FFAE81FF</color>  
 </resources>
