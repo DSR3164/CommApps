@@ -4,6 +4,8 @@ import com.example.commapps.ui.theme.CommAppsTheme
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -12,11 +14,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.ButtonDefaults
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.ElevatedButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.TextFieldDefaults
@@ -27,28 +27,51 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import java.util.Stack
+import kotlin.math.pow
 
 const val allowedOpers = "+-*/^"
-const val allowedSymbols = "+-*/^."
-class NothingToDoException(message: String) : Exception(message)
+const val allowedSymbols = "$allowedOpers.()"
 
 @Composable
 fun Calculator(colors: ColorScheme) {
     var input by remember { mutableStateOf("") }
     var result by remember { mutableStateOf("") }
-    Column(modifier = Modifier.fillMaxSize().background(colors.background), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center ) {
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(colors.background)
+            .padding(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
         OutlinedTextField(
             value = input,
             maxLines = 4,
+            textStyle = TextStyle(
+                fontSize = 24.sp,
+                fontWeight = FontWeight(600),
+                fontFamily = FontFamily.Monospace
+            ),
             label = { Text("Enter the expression") },
-            modifier = Modifier.fillMaxWidth().padding(16.dp),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
+            modifier = Modifier.fillMaxWidth(),
             onValueChange = { newValue ->
                 input = newValue.filter { it.isDigit() || it in allowedSymbols }
+                result = try {
+                   evaluate(input).toString()
+                } catch (e: Exception) {
+                    when (e.message) {
+                        "long overflow" -> "Too much to calc"
+                        "Nothing to do" -> ""
+                        else -> "Error"
+
+                    }
+                }
             },
             colors = TextFieldDefaults.colors(
                 focusedContainerColor = colors.background,
@@ -58,108 +81,102 @@ fun Calculator(colors: ColorScheme) {
             )
         )
         Spacer(modifier = Modifier.height(16.dp))
-        ElevatedButton(colors = ButtonDefaults.buttonColors(containerColor = colors.inversePrimary), onClick = {
-            result = try {
-                formatResult(evaluate(input))
-            } catch (e: NothingToDoException) {
-                e.message ?: "Nothing to do"
-            } catch (e: Exception) {
-                if (e.message == "long overflow"){
-                    "Too much to calc"
-                }
-                else{
-                    "Error"
-                }
-            }
-        }) {
-            Text("Calculate", fontSize = 20.sp, color = colors.primary)
-        }
-        Spacer(modifier = Modifier.height(16.dp))
-        Text(color = colors.primary, text = result, fontSize = 32.sp)
+        Text(
+            text = result,
+            color = colors.primary,
+            fontSize = 32.sp,
+            lineHeight = 38.sp,
+            modifier = Modifier
+                        .widthIn(max = 300.dp)
+                        .animateContentSize(animationSpec = tween(300))
+        )
     }
 }
 
-fun formatResult(value: Long): String = if (value % 1.0 == 0.0) value.toInt().toString() else value.toString()
+fun evaluate(expr: String): Double {
 
-fun evaluate(expr: String): Long {
-
-    if (!expr.any {it in allowedOpers}) {
-        throw NothingToDoException("Nothing to do")
+    if (!expr.any { it in allowedOpers }) {
+        throw Exception("Nothing to do")
     }
     val output = mutableListOf<String>()
-    val operators = Stack<Char>()
+    val operators = ArrayDeque<Char>()
     var i = 0
     while (i < expr.length) {
         val c = expr[i]
-        if (c.isDigit() || c == '.') {
-            var num = ""
-            while (i < expr.length && (expr[i].isDigit() || expr[i] == '.')) {
-                num += expr[i]
+        if (c.isDigit() || c == '.' ||
+            (c == '-' && (i == 0 || expr[i - 1] in "$allowedOpers(") && (i + 1 < expr.length && (expr[i + 1].isDigit() || expr[i + 1] == '.')))) {
+            val numBuilder = StringBuilder()
+            if (c == '-') {
+                numBuilder.append(c)
                 i++
             }
-            output.add(num)
+            while (i < expr.length && (expr[i].isDigit() || expr[i] == '.')) {
+                numBuilder.append(expr[i])
+                i++
+            }
+            output.add(numBuilder.toString())
             continue
         }
-        if (c == '(') operators.push(c)
-        else if (c == ')') {
-            while (operators.peek() != '(') output.add(operators.pop().toString())
-            operators.pop()
-        } else if (isOperator(c)) {
-            while (operators.isNotEmpty() && precedence(operators.peek()) >= precedence(c)) output.add(operators.pop().toString())
-            operators.push(c)
+        when (c) {
+            '(' -> operators.addLast(c)
+            ')' -> {
+                while (operators.isNotEmpty() && operators.last() != '(') {
+                    output.add(operators.removeLast().toString())
+                }
+                if (operators.isNotEmpty() && operators.last() == '(') {
+                    operators.removeLast()
+                } else {
+                    throw Exception("Mismatched parentheses")
+                }
+            }
+            else -> if (isOperator(c)) {
+                while (operators.isNotEmpty() &&
+                    if (c == '^') precedence(operators.last()) > precedence(c)
+                    else precedence(operators.last()) >= precedence(c)
+                ) {
+                    output.add(operators.removeLast().toString())
+                }
+                operators.addLast(c)
+            }
         }
         i++
     }
-    while (operators.isNotEmpty()) output.add(operators.pop().toString())
-    val stack = Stack<Long>()
+    while (operators.isNotEmpty()) {
+        val op = operators.removeLast()
+        if (op == '(' || op == ')') throw Exception("Mismatched parentheses")
+        output.add(op.toString())
+    }
+
+    val stack = ArrayDeque<Double>()
     for (token in output) {
-        val num = token.toLongOrNull()
-        if (num != null) stack.push(num)
-        else if (token.length == 1 && isOperator(token[0])) {
-            val b = stack.pop()
-            val a = stack.pop()
-            stack.push(applyOp(a, b, token[0]))
+        token.toDoubleOrNull()?.let { stack.addLast(it) } ?: run {
+            if (token.length == 1 && isOperator(token[0])) {
+                if (stack.size < 2) throw Exception("Invalid Expression")
+                val b = stack.removeLast()
+                val a = stack.removeLast()
+                stack.addLast(applyOp(a, b, token[0]))
+            }
         }
     }
-    return stack.pop()
+    return stack.last()
 }
 
 fun isOperator(c: Char) = c in allowedOpers
 
-fun precedence(c: Char) = when(c) {
+fun precedence(c: Char) = when (c) {
     '+', '-' -> 1
     '*', '/' -> 2
     '^' -> 3
     else -> -1
 }
 
-fun applyOp(a: Long, b: Long, op: Char): Long = when(op) {
+fun applyOp(a: Double, b: Double, op: Char): Double = when (op) {
     '+' -> a + b
     '-' -> a - b
     '*' -> a * b
     '/' -> a / b
     '^' -> a.pow(b)
-    else -> 0L
-}
-
-private fun Long.pow(exp: Long): Long {
-    if (exp < 0) throw IllegalArgumentException("Отрицательная степень не поддерживается")
-    if (this <= 0L) throw IllegalArgumentException("Основание должно быть положительным, чтобы избежать отрицательного или нулевого результата")
-
-    var result = 1L
-    var base = this
-    var exponent = exp
-
-    while (exponent > 0) {
-        if (exponent and 1L == 1L) {
-            result = Math.multiplyExact(result, base)
-        }
-        exponent = exponent shr 1
-        if (exponent > 0) {
-            base = Math.multiplyExact(base, base)
-        }
-    }
-    return result
+    else -> throw IllegalArgumentException("Unsupported operator")
 }
 
 
@@ -169,8 +186,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContent {
             CommAppsTheme(dynamicColor = false) {
-                val color = MaterialTheme.colorScheme
-                Calculator(color)
+                Calculator(MaterialTheme.colorScheme)
             }
         }
     }
