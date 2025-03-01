@@ -43,6 +43,7 @@ fun Calculator(colors: ColorScheme) {
     Column(modifier = Modifier.fillMaxSize().background(colors.background), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center ) {
         OutlinedTextField(
             value = input,
+            maxLines = 4,
             label = { Text("Enter the expression") },
             modifier = Modifier.fillMaxWidth().padding(16.dp),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
@@ -50,7 +51,10 @@ fun Calculator(colors: ColorScheme) {
                 input = newValue.filter { it.isDigit() || it in allowedSymbols }
             },
             colors = TextFieldDefaults.colors(
-                focusedContainerColor = colors.inversePrimary
+                focusedContainerColor = colors.background,
+                unfocusedContainerColor = colors.background,
+                focusedIndicatorColor = colors.inversePrimary,
+                focusedLabelColor = colors.inversePrimary
             )
         )
         Spacer(modifier = Modifier.height(16.dp))
