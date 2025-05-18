@@ -11,21 +11,43 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.automirrored.filled.ArrowBackIos
+import androidx.compose.material.icons.automirrored.filled.ArrowForwardIos
+import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.example.commapps.ui.theme.CommAppsTheme
 import java.io.File
+
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -100,24 +122,23 @@ fun MusicPlayerScreen() {
                             currentTrackIndex = index
                             isPlaying = true
                         }
-                        .padding(16.dp)
+                        .padding(5.dp)
                 ) {
-                    Icon(Icons.Filled.Notifications, contentDescription = null)
+                    Icon(Icons.Filled.MusicNote, contentDescription = null)
                     Spacer(modifier = Modifier.width(12.dp))
                     Column {
-                        Text(file.name)
-                        Text(file.path, style = MaterialTheme.typography.bodySmall)
+                        Text(file.name.substringBeforeLast("."))
                     }
                 }
             }
         }
 
-        Divider()
-
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(8.dp),
+                .padding(12.dp)
+                .height(80.dp),
+
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceEvenly
         ) {
@@ -128,7 +149,7 @@ fun MusicPlayerScreen() {
                     isPlaying = true
                 }
             }) {
-                Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "Previous")
+                Icon(Icons.AutoMirrored.Filled.ArrowBackIos, modifier = Modifier.size(32.dp), contentDescription = "Previous")
             }
 
             IconButton(onClick = {
@@ -139,15 +160,10 @@ fun MusicPlayerScreen() {
                     mediaPlayer.start()
                     isPlaying = true
                 }
-            }) {
-                Icon(if (isPlaying) Icons.Filled.Clear else Icons.Default.PlayArrow, contentDescription = "Play/Pause")
-            }
-
-            IconButton(onClick = {
-                mediaPlayer.stop()
-                isPlaying = false
-            }) {
-                Icon(Icons.Filled.Clear, contentDescription = "Stop")
+            },
+                modifier = Modifier.size(48.dp))
+            {
+                Icon(if (isPlaying) Icons.Filled.Pause else Icons.Default.PlayArrow, modifier = Modifier.size(48.dp), contentDescription = "Play/Pause")
             }
 
             IconButton(onClick = {
@@ -157,14 +173,14 @@ fun MusicPlayerScreen() {
                     isPlaying = true
                 }
             }) {
-                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "Next")
+                Icon(Icons.AutoMirrored.Filled.ArrowForwardIos, modifier = Modifier.size(32.dp),contentDescription = "Next")
             }
         }
     }
 }
 
 private fun getMusicFiles(): List<File> {
-    val musicDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_MUSIC)
+    val musicDir = Environment.getExternalStoragePublicDirectory("Music")
     return musicDir.listFiles()?.filter { it.extension in listOf("mp3", "wav") } ?: emptyList()
 }
 
