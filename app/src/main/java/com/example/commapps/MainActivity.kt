@@ -1,52 +1,184 @@
 package com.example.commapps
 
-import android.Manifest
-import android.media.MediaPlayer
-import android.os.Build
+import com.example.commapps.ui.theme.CommAppsTheme
 import android.os.Bundle
-import android.os.Environment
-import android.util.Log
 import androidx.activity.ComponentActivity
-import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.clickable
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBackIos
-import androidx.compose.material.icons.automirrored.filled.ArrowForwardIos
-import androidx.compose.material.icons.filled.MusicNote
-import androidx.compose.material.icons.filled.Pause
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.example.commapps.ui.theme.CommAppsTheme
-import java.io.File
+import androidx.compose.ui.unit.sp
+import kotlin.math.pow
+
+const val allowedOpers = "+-*/^"
+const val allowedSymbols = "$allowedOpers.()"
+
+@Composable
+fun Calculator(colors: ColorScheme) {
+    var input by remember { mutableStateOf("") }
+    var result by remember { mutableStateOf("") }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(colors.background)
+            .padding(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        OutlinedTextField(
+            value = input,
+            maxLines = 4,
+            textStyle = TextStyle(
+                fontSize = 24.sp,
+                fontWeight = FontWeight(600),
+                fontFamily = FontFamily.Monospace
+            ),
+            label = { Text("Enter the expression") },
+            modifier = Modifier.fillMaxWidth(),
+            onValueChange = { newValue ->
+                input = newValue.filter { it.isDigit() || it in allowedSymbols }
+                result = try {
+                   evaluate(input).toString()
+                } catch (e: Exception) {
+                    when (e.message) {
+                        "long overflow" -> "Too much to calc"
+                        "Nothing to do" -> ""
+                        else -> "Error"
+
+                    }
+                }
+            },
+            colors = TextFieldDefaults.colors(
+                focusedContainerColor = colors.background,
+                unfocusedContainerColor = colors.background,
+                focusedIndicatorColor = colors.inversePrimary,
+                focusedLabelColor = colors.inversePrimary
+            )
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+        Text(
+            text = result,
+            color = colors.primary,
+            fontSize = 32.sp,
+            lineHeight = 38.sp,
+            modifier = Modifier
+                        .widthIn(max = 300.dp)
+                        .animateContentSize(animationSpec = tween(300))
+        )
+    }
+}
+
+fun evaluate(expr: String): Double {
+
+    if (!expr.any { it in allowedOpers }) {
+        throw Exception("Nothing to do")
+    }
+    val output = mutableListOf<String>()
+    val operators = ArrayDeque<Char>()
+    var i = 0
+    while (i < expr.length) {
+        val c = expr[i]
+        if (c.isDigit() || c == '.' ||
+            (c == '-' && (i == 0 || expr[i - 1] in "$allowedOpers(") && (i + 1 < expr.length && (expr[i + 1].isDigit() || expr[i + 1] == '.')))) {
+            val numBuilder = StringBuilder()
+            if (c == '-') {
+                numBuilder.append(c)
+                i++
+            }
+            while (i < expr.length && (expr[i].isDigit() || expr[i] == '.')) {
+                numBuilder.append(expr[i])
+                i++
+            }
+            output.add(numBuilder.toString())
+            continue
+        }
+        when (c) {
+            '(' -> operators.addLast(c)
+            ')' -> {
+                while (operators.isNotEmpty() && operators.last() != '(') {
+                    output.add(operators.removeLast().toString())
+                }
+                if (operators.isNotEmpty() && operators.last() == '(') {
+                    operators.removeLast()
+                } else {
+                    throw Exception("Mismatched parentheses")
+                }
+            }
+            else -> if (isOperator(c)) {
+                while (operators.isNotEmpty() &&
+                    if (c == '^') precedence(operators.last()) > precedence(c)
+                    else precedence(operators.last()) >= precedence(c)
+                ) {
+                    output.add(operators.removeLast().toString())
+                }
+                operators.addLast(c)
+            }
+        }
+        i++
+    }
+    while (operators.isNotEmpty()) {
+        val op = operators.removeLast()
+        if (op == '(' || op == ')') throw Exception("Mismatched parentheses")
+        output.add(op.toString())
+    }
+
+    val stack = ArrayDeque<Double>()
+    for (token in output) {
+        token.toDoubleOrNull()?.let { stack.addLast(it) } ?: run {
+            if (token.length == 1 && isOperator(token[0])) {
+                if (stack.size < 2) throw Exception("Invalid Expression")
+                val b = stack.removeLast()
+                val a = stack.removeLast()
+                stack.addLast(applyOp(a, b, token[0]))
+            }
+        }
+    }
+    return stack.last()
+}
+
+fun isOperator(c: Char) = c in allowedOpers
+
+fun precedence(c: Char) = when (c) {
+    '+', '-' -> 1
+    '*', '/' -> 2
+    '^' -> 3
+    else -> -1
+}
+
+fun applyOp(a: Double, b: Double, op: Char): Double = when (op) {
+    '+' -> a + b
+    '-' -> a - b
+    '*' -> a * b
+    '/' -> a / b
+    '^' -> a.pow(b)
+    else -> throw IllegalArgumentException("Unsupported operator")
+}
+
 
 
 class MainActivity : ComponentActivity() {
@@ -54,143 +186,8 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContent {
             CommAppsTheme(dynamicColor = false) {
-                MusicPlayerScreen()
+                Calculator(MaterialTheme.colorScheme)
             }
         }
-    }
-}
-
-@Composable
-fun MusicPlayerScreen() {
-    var hasPermission by remember { mutableStateOf(false) }
-    val context = LocalContext.current
-
-    val musicFiles by remember {
-        mutableStateOf(getMusicFiles())
-    }
-
-    var currentTrackIndex by remember { mutableStateOf(-1) }
-    var isPlaying by remember { mutableStateOf(false) }
-    val mediaPlayer = remember { MediaPlayer() }
-
-    val permissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { granted ->
-        hasPermission = granted
-    }
-
-    LaunchedEffect(Unit) {
-        val permission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU)
-            Manifest.permission.READ_MEDIA_AUDIO
-        else
-            Manifest.permission.READ_EXTERNAL_STORAGE
-        permissionLauncher.launch(permission)
-    }
-
-    DisposableEffect(Unit) {
-        onDispose {
-            try {
-                mediaPlayer.release()
-            } catch (e: Exception) {
-                Log.e("MusicPlayer", "Error releasing MediaPlayer", e)
-            }
-        }
-    }
-
-    if (!hasPermission) {
-        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text("Permission required to access music files.")
-        }
-        return
-    }
-
-    Column(modifier = Modifier.fillMaxSize()) {
-        Text(
-            "Favorite List",
-            style = MaterialTheme.typography.titleLarge,
-            modifier = Modifier.padding(16.dp)
-        )
-
-        LazyColumn(modifier = Modifier.weight(1f)) {
-            itemsIndexed(musicFiles) { index, file ->
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable {
-                            tryPlay(mediaPlayer, file)
-                            currentTrackIndex = index
-                            isPlaying = true
-                        }
-                        .padding(5.dp)
-                ) {
-                    Icon(Icons.Filled.MusicNote, contentDescription = null)
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Column {
-                        Text(file.name.substringBeforeLast("."))
-                    }
-                }
-            }
-        }
-
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp)
-                .height(80.dp),
-
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceEvenly
-        ) {
-            IconButton(onClick = {
-                if (currentTrackIndex > 0) {
-                    currentTrackIndex--
-                    tryPlay(mediaPlayer, musicFiles[currentTrackIndex])
-                    isPlaying = true
-                }
-            }) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBackIos, modifier = Modifier.size(32.dp), contentDescription = "Previous")
-            }
-
-            IconButton(onClick = {
-                if (isPlaying) {
-                    mediaPlayer.pause()
-                    isPlaying = false
-                } else if (currentTrackIndex != -1) {
-                    mediaPlayer.start()
-                    isPlaying = true
-                }
-            },
-                modifier = Modifier.size(48.dp))
-            {
-                Icon(if (isPlaying) Icons.Filled.Pause else Icons.Default.PlayArrow, modifier = Modifier.size(48.dp), contentDescription = "Play/Pause")
-            }
-
-            IconButton(onClick = {
-                if (currentTrackIndex < musicFiles.lastIndex) {
-                    currentTrackIndex++
-                    tryPlay(mediaPlayer, musicFiles[currentTrackIndex])
-                    isPlaying = true
-                }
-            }) {
-                Icon(Icons.AutoMirrored.Filled.ArrowForwardIos, modifier = Modifier.size(32.dp),contentDescription = "Next")
-            }
-        }
-    }
-}
-
-private fun getMusicFiles(): List<File> {
-    val musicDir = Environment.getExternalStoragePublicDirectory("Music")
-    return musicDir.listFiles()?.filter { it.extension in listOf("mp3", "wav") } ?: emptyList()
-}
-
-private fun tryPlay(mediaPlayer: MediaPlayer, file: File) {
-    try {
-        mediaPlayer.reset()
-        mediaPlayer.setDataSource(file.absolutePath)
-        mediaPlayer.prepare()
-        mediaPlayer.start()
-    } catch (e: Exception) {
-        Log.e("MusicPlayer", "Error playing file", e)
     }
 }
