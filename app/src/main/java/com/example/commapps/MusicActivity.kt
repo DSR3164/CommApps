@@ -108,7 +108,8 @@ fun MusicPlayerScreen() {
         Text(
             "Favorite List",
             style = MaterialTheme.typography.titleLarge,
-            modifier = Modifier.padding(16.dp)
+            modifier = Modifier.padding(16.dp),
+            color = MaterialTheme.colorScheme.inversePrimary
         )
 
         LazyColumn(modifier = Modifier.weight(1f)) {
@@ -124,10 +125,10 @@ fun MusicPlayerScreen() {
                         }
                         .padding(5.dp)
                 ) {
-                    Icon(Icons.Filled.MusicNote, contentDescription = null)
+                    Icon(Icons.Filled.MusicNote, contentDescription = null, tint = MaterialTheme.colorScheme.inversePrimary)
                     Spacer(modifier = Modifier.width(12.dp))
                     Column {
-                        Text(file.name.substringBeforeLast("."))
+                        Text(file.name.substringBeforeLast("."), color = MaterialTheme.colorScheme.inversePrimary)
                     }
                 }
             }
