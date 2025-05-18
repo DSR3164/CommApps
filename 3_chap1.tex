@@ -1,0 +1,77 @@
+\chapter*{Теория}
+\addcontentsline{toc}{chapter}{Теория}
+
+При разработке мобильных приложений для платформы Android одной из ключевых задач является получение и обработка геопозиционных данных устройства. Геолокация на Android базируется на двух основных подходах:
+\begin{itemize}
+    \item \textbf{Использование системных провайдеров GPS и сети} через стандартный класс \texttt{android.location.LocationManager}. Данный подход обеспечивает детальное управление источниками (GPS, сотовая сеть, Wi-Fi), но требует сложной логики выбора оптимального провайдера, управления жизненным циклом запроса и значительных затрат ресурсов устройства.
+    \item \textbf{Fused Location Provider API} из библиотеки Google Play Services (класс \texttt{FusedLocationProviderClient}). Абстрагирует детали разных провайдеров, автоматически выбирая наиболее точный и энергоэффективный источник в зависимости от условий и заданных параметров запроса.
+\end{itemize}
+
+\subsection*{Модель разрешений Android}
+Начиная с версии Android 6.0 (API 23), политика безопасности платформы перешла на модель «рантайм-разрешений». Для доступа к геоданным необходимо запросить у пользователя одно из разрешений:
+\begin{itemize}
+    \item \texttt{ACCESS\_FINE\_LOCATION} — высокоточная локация (GPS, сеть).
+    \item \texttt{ACCESS\_COARSE\_LOCATION} — приблизительная локация (сотовые вышки, Wi-Fi).
+\end{itemize}
+Приложение должно:
+\begin{enumerate}
+    \item Проверить наличие разрешений через \texttt{ActivityCompat.checkSelfPermission()}.
+    \item При отсутствии — инициировать запрос с помощью \texttt{ActivityResultContracts.RequestMultiplePermissions}.
+    \item Обрабатывать результат и корректно реагировать на отказ пользователя.
+\end{enumerate}
+
+\subsection*{Jetpack Compose и асинхронные операции}
+Jetpack Compose предлагает декларативный подход к построению UI на Kotlin\cite{compose_runtime,kotlin_reference}. Для интеграции с API (такими как FusedLocationProviderClient\cite{fused_location_api}) в Compose используются:
+\begin{itemize}
+    \item \texttt{rememberLauncherForActivityResult} — для запуска запросов разрешений и получения их результата внутри композиции.
+    \item \texttt{LaunchedEffect} — для выполнения побочных эффектов при старте или изменении состояний.
+    \item \texttt{mutableStateOf} и \texttt{remember} — для хранения и отслеживания состояния UI (например, списка сохранённых точек или статуса операции).
+\end{itemize}
+
+\subsection*{Формат и организация хранения данных}
+Для долговременного хранения точек геолокации используется файл в публичной директории \texttt{Environment.DIRECTORY\_DOCUMENTS}. Выбор \textbf{JSON} обоснован:
+\begin{itemize}
+    \item Читаемость и простота отладки.
+    \item Широкая поддержка в стандартных библиотеках (\texttt{org.json.JSONArray}, \texttt{org.json.JSONObject}).
+    \item Возможность форматирования с отступами для удобства ручного просмотра.
+\end{itemize}
+Структура файла:
+\begin{verbatim}
+[
+  {
+    "latitude": 55.7558,
+    "longitude": 37.6173,
+    "timestamp": "2025-05-19 14:23:10"
+  },
+  … 
+]
+\end{verbatim} 
+Методы работы с файлом:
+\begin{enumerate}
+    \item \texttt{file.readText()} для чтения всего содержимого.
+    \item Создание или парсинг \texttt{JSONArray} для добавления новых записей.
+    \item Запись обратно с помощью \texttt{FileWriter} и форматированного вывода \texttt{toString(2)}.
+\end{enumerate}
+
+\subsection*{Отображение истории точек в UI}
+Для визуализации сохранённых данных используется \texttt{LazyColumn} с элементами \texttt{Card}. Каждая карточка содержит:
+\begin{itemize}
+    \item Временную метку (\texttt{timestamp}) в формате \texttt{yyyy-MM-dd HH:mm:ss}.
+    \item Координаты: широта (\texttt{latitude}) и долгота (\texttt{longitude}).
+\end{itemize}
+Преимущества такого решения:
+\begin{itemize}
+    \item Отложенная отрисовка элементов при большом числе записей.
+    \item Возможность легко стилизовать и расширять карточку (иконки, кнопки, цветовые маркеры).
+    \item Реактивное обновление списка при изменении состояния \texttt{entries}.
+\end{itemize}
+
+\subsection*{Безопасность и ограничения}
+При работе с внешней памятью важно учитывать:
+\begin{itemize}
+    \item Разрешения на запись/чтение: \texttt{WRITE\_EXTERNAL\_STORAGE} (для старых версий) либо использование \texttt{Storage Access Framework}.
+    \item Возможность отсутствия файловой системы (например, при отсутствии карты памяти).
+    \item Обработка исключений для надёжного восстановления в случае ошибок I/O.
+\end{itemize}
+
+Таким образом, теоретическая база для получения, сохранения и отображения геопозиций в мобильном приложении объединяет в себе принципы работы Android API по локации, модель безопасности рантайм-разрешений, декларативный UI Jetpack Compose и практики организации JSON-хранилища.```

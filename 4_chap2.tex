@@ -1,0 +1,75 @@
+\chapter*{Практическая часть}
+\addcontentsline{toc}{chapter}{Практическая часть}
+
+В данной главе представлен анализ и описание реализации функционала получения и сохранения геолокации в Android‑приложении на базе Jetpack Compose. Основой приложения служит файл \texttt{Location.kt}, в котором последовательно выполняются следующие шаги:
+
+\begin{enumerate}
+    \item Запрос разрешений на доступ к геоданным (\texttt{ACCESS\_FINE\_LOCATION}, \texttt{ACCESS\_COARSE\_LOCATION}) с помощью \texttt{ActivityResultContracts.RequestMultiplePermissions}.
+    \item Получение последней известной локации через \texttt{FusedLocationProviderClient}.
+    \item Формирование JSON‑объекта с полями \texttt{latitude}, \texttt{longitude} и \texttt{timestamp}\cite{json_android}.
+    \item Сохранение (дозапись) этого объекта в файл \texttt{location\_data.json} в директории \texttt{Environment.DIRECTORY\_DOCUMENTS}.
+    \item Загрузка всей истории точек из файла и отображение в списке \texttt{LazyColumn} с карточками (\texttt{Card}).
+\end{enumerate}
+
+\subsection*{Основные компоненты и их взаимодействие}
+
+\begin{itemize}
+    \item \textbf{LocationActivity} (наследник \texttt{ComponentActivity}) задаёт тему приложения и запускает компоновку \texttt{LocationSaverScreen()}.
+    \item \textbf{LocationSaverScreen}:
+    \begin{itemize}
+        \item \texttt{rememberLauncherForActivityResult} для запроса прав.
+        \item \texttt{LaunchedEffect(Unit)} — начальная инициализация: загрузка существующих записей и запрос разрешений.
+        \item Кнопка \texttt{Get Location} запускает логику проверок прав, асинхронный вызов \texttt{fusedLocationClient.lastLocation} и сохранение результата.
+    \end{itemize}
+    \item \textbf{LocationEntry} — дата‑класс для хранения одной записи.
+    \item \textbf{LocationCard} — компоновка карточки с выводом временной метки и координат.
+\end{itemize}
+
+\subsection*{Пример кода}
+
+\begin{lstlisting}[language=Kotlin, caption={Запись новой локации в файл}]
+fusedLocationClient.lastLocation
+    .addOnSuccessListener { location: Location? ->
+        if (location != null) {
+            val lat = location.latitude
+            val lon = location.longitude
+            val time = SimpleDateFormat(
+                "yyyy-MM-dd HH:mm:ss",
+                Locale.getDefault()
+            ).format(Date())
+            // Creating a JSON object
+            val newObj = JSONObject().apply {
+                put("latitude", lat)
+                put("longitude", lon)
+                put("timestamp", time)
+            }
+            // Reading an existing array or creating a new one
+            val arr = try {
+                JSONArray(file.readText())
+            } catch (_: Exception) {
+                JSONArray()
+            }
+            arr.put(newObj)
+            // Writing it to an indented file
+            FileWriter(file).use { it.write(arr.toString(2)) }
+            statusText = "SAVED: \$time"
+            entries = loadLocationsFromFile()
+        } else {
+            statusText = "Location is null"
+        }
+    }
+    .addOnFailureListener { e ->
+        statusText = "Location acquisition error: ${'$'}{e.message}"
+    }
+\end{lstlisting}
+
+\subsection*{Тестирование и результаты}
+
+Для проверки корректности работы выполнены тесты на эмуляторе и реальном устройстве:
+\begin{itemize}
+    \item Поведение при отказе в разрешениях: приложение повторно запрашивает права и отображает сообщение об ошибке.
+    \item Сохранение нескольких точек: JSON‑файл формируется верно, добавляются новые записи, и они отображаются в списке.
+    \item Обработка состояния, когда \texttt{lastLocation == null}: выводится соответствующий текст.
+\end{itemize}
+
+В результате получен стабильный модуль, который можно подключить к любому Android‑приложению для сбора и хранения геоданных пользователя.
