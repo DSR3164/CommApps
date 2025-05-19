@@ -117,7 +117,7 @@ fun LocationSaverScreen() {
                             val lat = location.latitude
                             val lon = location.longitude
                             val time = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
-                                .format(Date())
+                                .format(location.time)
                             val newObj = JSONObject().apply {
                                 put("latitude", lat)
                                 put("longitude", lon)
