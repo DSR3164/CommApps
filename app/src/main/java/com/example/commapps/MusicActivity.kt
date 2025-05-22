@@ -43,7 +43,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.example.commapps.ui.theme.CommAppsTheme
 import java.io.File
@@ -63,7 +62,6 @@ class MusicActivity : ComponentActivity() {
 @Composable
 fun MusicPlayerScreen() {
     var hasPermission by remember { mutableStateOf(false) }
-    val context = LocalContext.current
 
     val musicFiles by remember {
         mutableStateOf(getMusicFiles())
@@ -72,11 +70,31 @@ fun MusicPlayerScreen() {
     var currentTrackIndex by remember { mutableStateOf(-1) }
     var isPlaying by remember { mutableStateOf(false) }
     val mediaPlayer = remember { MediaPlayer() }
+    var currentPosition by remember { mutableStateOf(0) }
+    var totalDuration by remember { mutableStateOf(0) }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { granted ->
         hasPermission = granted
+    }
+
+    LaunchedEffect(currentTrackIndex) {
+        if (currentTrackIndex != -1) {
+            mediaPlayer.reset()
+            mediaPlayer.setDataSource(musicFiles[currentTrackIndex].absolutePath)
+            mediaPlayer.prepare()
+            totalDuration = mediaPlayer.duration
+            mediaPlayer.start()
+            isPlaying = true
+        }
+    }
+
+    LaunchedEffect(isPlaying) {
+        while (isPlaying) {
+            currentPosition = mediaPlayer.currentPosition
+            kotlinx.coroutines.delay(1000)
+        }
     }
 
     LaunchedEffect(Unit) {
@@ -133,6 +151,20 @@ fun MusicPlayerScreen() {
                 }
             }
         }
+
+        Text(
+            text = "%02d:%02d / %02d:%02d".format(
+                currentPosition / 1000 / 60,
+                (currentPosition / 1000) % 60,
+                totalDuration / 1000 / 60,
+                (totalDuration / 1000) % 60
+            ),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(8.dp),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onBackground
+        )
 
         Row(
             modifier = Modifier
