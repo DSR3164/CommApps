@@ -36,7 +36,7 @@ fusedLocationClient.lastLocation
             val time = SimpleDateFormat(
                 "yyyy-MM-dd HH:mm:ss",
                 Locale.getDefault()
-            ).format(Date())
+            ).format(location.time)
             // Creating a JSON object
             val newObj = JSONObject().apply {
                 put("latitude", lat)
