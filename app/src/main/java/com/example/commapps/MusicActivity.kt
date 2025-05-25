@@ -63,9 +63,7 @@ class MusicActivity : ComponentActivity() {
 fun MusicPlayerScreen() {
     var hasPermission by remember { mutableStateOf(false) }
 
-    val musicFiles by remember {
-        mutableStateOf(getMusicFiles())
-    }
+    val musicFiles = remember { mutableStateOf<List<File>>(emptyList()) }
 
     var currentTrackIndex by remember { mutableStateOf(-1) }
     var isPlaying by remember { mutableStateOf(false) }
@@ -77,12 +75,15 @@ fun MusicPlayerScreen() {
         ActivityResultContracts.RequestPermission()
     ) { granted ->
         hasPermission = granted
+        if (granted) {
+            musicFiles.value = getMusicFiles()
+        }
     }
 
     LaunchedEffect(currentTrackIndex) {
         if (currentTrackIndex != -1) {
             mediaPlayer.reset()
-            mediaPlayer.setDataSource(musicFiles[currentTrackIndex].absolutePath)
+            mediaPlayer.setDataSource(musicFiles.value[currentTrackIndex].absolutePath)
             mediaPlayer.prepare()
             totalDuration = mediaPlayer.duration
             mediaPlayer.start()
@@ -131,7 +132,7 @@ fun MusicPlayerScreen() {
         )
 
         LazyColumn(modifier = Modifier.weight(1f)) {
-            itemsIndexed(musicFiles) { index, file ->
+            itemsIndexed(musicFiles.value) { index, file ->
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
@@ -178,7 +179,7 @@ fun MusicPlayerScreen() {
             IconButton(onClick = {
                 if (currentTrackIndex > 0) {
                     currentTrackIndex--
-                    tryPlay(mediaPlayer, musicFiles[currentTrackIndex])
+                    tryPlay(mediaPlayer, musicFiles.value[currentTrackIndex])
                     isPlaying = true
                 }
             }) {
@@ -200,9 +201,9 @@ fun MusicPlayerScreen() {
             }
 
             IconButton(onClick = {
-                if (currentTrackIndex < musicFiles.lastIndex) {
+                if (currentTrackIndex < musicFiles.value.lastIndex) {
                     currentTrackIndex++
-                    tryPlay(mediaPlayer, musicFiles[currentTrackIndex])
+                    tryPlay(mediaPlayer, musicFiles.value[currentTrackIndex])
                     isPlaying = true
                 }
             }) {
